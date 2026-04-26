@@ -1,0 +1,1177 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Swiggy Meal Rotation UI</title>
+  <script type="importmap">{"imports":{"react":"https://esm.sh/react@18.2.0","react-dom/client":"https://esm.sh/react-dom@18.2.0/client"}}</script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body style="margin:0">
+  <div id="root"></div>
+  <script type="text/babel" data-type="module">
+import React, { useMemo, useState } from "react";
+
+const steps = ["Plan Type", "Days", "Restaurants", "Payment", "Review"];
+
+const restaurants = [
+  {
+    id: 1,
+    name: "Fresh Bowl Co.",
+    meta: "Healthy • Bowls • 25 mins",
+    rating: "4.4",
+    emoji: "🥗",
+    dishes: [
+      { id: "fb-1", name: "Paneer Rice Bowl", price: 219, emoji: "🥗" },
+      { id: "fb-2", name: "Protein Veg Bowl", price: 249, emoji: "🥙" },
+      { id: "fb-3", name: "Chole Quinoa Bowl", price: 229, emoji: "🍲" }
+    ]
+  },
+  {
+    id: 2,
+    name: "Biryani House",
+    meta: "Biryani • North Indian • 32 mins",
+    rating: "4.2",
+    emoji: "🍛",
+    dishes: [
+      { id: "bh-1", name: "Chicken Biryani", price: 289, emoji: "🍛" },
+      { id: "bh-2", name: "Veg Biryani", price: 229, emoji: "🥘" },
+      { id: "bh-3", name: "Paneer Biryani", price: 259, emoji: "🍱" }
+    ]
+  },
+  {
+    id: 3,
+    name: "Homely Meals",
+    meta: "Indian Meals • Thali • 20 mins",
+    rating: "4.5",
+    emoji: "🍚",
+    dishes: [
+      { id: "hm-1", name: "Rajma Chawal", price: 179, emoji: "🍚" },
+      { id: "hm-2", name: "Dal Khichdi", price: 159, emoji: "🥘" },
+      { id: "hm-3", name: "Veg Thali", price: 229, emoji: "🍽️" }
+    ]
+  },
+  {
+    id: 4,
+    name: "Wrap Street",
+    meta: "Wraps • Fast Food • 18 mins",
+    rating: "4.1",
+    emoji: "🌯",
+    dishes: [
+      { id: "ws-1", name: "Mexican Wrap", price: 199, emoji: "🌯" },
+      { id: "ws-2", name: "Paneer Tikka Wrap", price: 219, emoji: "🌮" },
+      { id: "ws-3", name: "Chicken Shawarma Wrap", price: 239, emoji: "🥙" }
+    ]
+  }
+];
+
+function getAllDishes() {
+  return restaurants.reduce(function (acc, restaurant) {
+    return acc.concat(
+      restaurant.dishes.map(function (dish) {
+        return Object.assign({}, dish, { restaurant: restaurant.name });
+      })
+    );
+  }, []);
+}
+
+function validateSetup(data) {
+  return {
+    hasPlan: Boolean(data.plan),
+    hasDays: Array.isArray(data.selectedDates) && data.selectedDates.length > 0,
+    hasSevenDishes: data.dishes.length === 7,
+    hasValidTime: Boolean(data.time),
+    hasCouponMode: data.couponMode === "auto-best",
+    hasPaymentMode: data.paymentMode === "mandate" || data.paymentMode === "manual-upi",
+    hasMandateMethod: data.paymentMode !== "mandate" || Boolean(data.paymentMethod),
+    hasUpiId: data.paymentMode !== "manual-upi" || Boolean(data.upiId)
+  };
+}
+
+function canAddDish(currentDishes, dishId) {
+  var alreadyAdded = currentDishes.some(function (dish) {
+    return dish.id === dishId;
+  });
+  return alreadyAdded || currentDishes.length < 7;
+}
+
+function runSmokeTests() {
+  var sample = {
+    plan: "Lunch",
+    selectedDates: ["2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05", "2026-05-06", "2026-05-07"],
+    dishes: getAllDishes().slice(0, 7),
+    couponMode: "auto-best",
+    paymentMode: "mandate",
+    paymentMethod: "Google Pay",
+    upiId: "",
+    mandateLimit: 1633,
+    time: "1:00 PM"
+  };
+
+  var result = validateSetup(sample);
+  console.assert(result.hasPlan, "Plan should be selected.");
+  console.assert(result.hasDays, "At least one ordering date should be selected.");
+  console.assert(result.hasSevenDishes, "Exactly 7 dishes should be selected.");
+  console.assert(result.hasValidTime, "Delivery time should be selected.");
+  console.assert(result.hasCouponMode, "Best available coupon should be auto-applied.");
+  console.assert(result.hasPaymentMode, "Payment mode should be selected.");
+  console.assert(result.hasMandateMethod, "Mandate payment method should be selected.");
+  console.assert(sample.mandateLimit === 1633, "Mandate limit should be ₹1,633.");
+
+  console.assert(getAllDishes().length >= 7, "There should be at least 7 selectable dishes.");
+  console.assert(canAddDish(sample.dishes, sample.dishes[0].id), "Already selected dishes should be removable even after 7 selections.");
+  console.assert(!canAddDish(sample.dishes, "new-dish"), "New dishes should not be added after 7 selections.");
+}
+
+runSmokeTests();
+
+const styles = {
+  page: {
+    minHeight: "100vh",
+    background: "radial-gradient(circle at top left, #fff0dc 0, #f8fafc 34%, #eef2f7 100%)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+    padding: 16
+  },
+  phoneOuter: {
+    width: 390,
+    minHeight: 820,
+    borderRadius: 46,
+    background: "linear-gradient(145deg, #18181b, #050505)",
+    padding: 10,
+    boxShadow: "0 26px 80px rgba(15, 23, 42, 0.28), 0 8px 22px rgba(249, 115, 22, 0.14)"
+  },
+  phoneInner: {
+    minHeight: 794,
+    height: 794,
+    borderRadius: 38,
+    background: "#fffaf4",
+    overflow: "hidden",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column"
+  },
+  statusBar: {
+    height: 28,
+    padding: "8px 22px 0",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    color: "#27272a",
+    fontSize: 12,
+    fontWeight: 900
+  },
+  appHeader: {
+    padding: "10px 20px 14px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  brandLockup: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10
+  },
+  brandIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 16,
+    background: "linear-gradient(145deg, #fc8019, #ef4444)",
+    color: "white",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 950,
+    boxShadow: "0 10px 24px rgba(252, 128, 25, 0.28)"
+  },
+  headerChip: {
+    border: "1px solid rgba(252, 128, 25, 0.22)",
+    borderRadius: 999,
+    background: "rgba(255, 255, 255, 0.74)",
+    color: "#9a3412",
+    fontSize: 12,
+    fontWeight: 900,
+    padding: "8px 11px"
+  },
+  content: {
+    padding: "8px 20px 20px"
+  },
+  title: {
+    fontSize: 25,
+    lineHeight: "31px",
+    margin: 0,
+    fontWeight: 950,
+    color: "#171717",
+    letterSpacing: 0
+  },
+  subtitle: {
+    fontSize: 14,
+    lineHeight: "21px",
+    margin: "8px 0 0",
+    color: "#6b7280"
+  },
+  progressWrap: {
+    padding: "0 20px 10px"
+  },
+  progressTrack: {
+    display: "flex",
+    gap: 6
+  },
+  progressItem: {
+    height: 6,
+    flex: 1,
+    borderRadius: 999
+  },
+  stepText: {
+    margin: "10px 0 0",
+    fontSize: 12,
+    color: "#78716c",
+    fontWeight: 800
+  },
+  optionCard: {
+    width: "100%",
+    border: "1px solid rgba(231, 229, 228, 0.95)",
+    background: "rgba(255, 255, 255, 0.92)",
+    borderRadius: 18,
+    padding: 16,
+    textAlign: "left",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    boxShadow: "0 10px 26px rgba(15, 23, 42, 0.055)"
+  },
+  selectedCard: {
+    border: "1px solid rgba(252, 128, 25, 0.72)",
+    background: "linear-gradient(135deg, #fff7ed, #ffffff)",
+    boxShadow: "0 14px 30px rgba(252, 128, 25, 0.16)"
+  },
+  primaryButton: {
+    border: 0,
+    borderRadius: 16,
+    background: "linear-gradient(135deg, #fc8019, #f97316)",
+    color: "white",
+    fontWeight: 950,
+    padding: "15px 16px",
+    cursor: "pointer",
+    flex: 1,
+    boxShadow: "0 14px 28px rgba(252, 128, 25, 0.26)"
+  },
+  secondaryButton: {
+    border: "1px solid rgba(214, 211, 209, 0.9)",
+    borderRadius: 16,
+    background: "rgba(255, 255, 255, 0.86)",
+    color: "#18181b",
+    fontWeight: 900,
+    padding: "14px 16px",
+    cursor: "pointer",
+    flex: 1
+  },
+  disabledButton: {
+    opacity: 0.4,
+    cursor: "not-allowed"
+  },
+  footer: {
+    display: "flex",
+    gap: 10,
+    marginTop: 20
+  },
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    marginTop: 20
+  },
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1px solid rgba(214, 211, 209, 0.95)",
+    background: "rgba(255, 255, 255, 0.94)",
+    borderRadius: 16,
+    padding: "14px 15px",
+    outline: "none",
+    fontSize: 14,
+    boxShadow: "0 10px 24px rgba(15, 23, 42, 0.045)"
+  },
+  scrollArea: {
+    overflowY: "auto",
+    flex: 1,
+    minHeight: 0,
+    paddingBottom: 12,
+    WebkitOverflowScrolling: "touch"
+  },
+  pill: {
+    borderRadius: 999,
+    padding: "5px 10px",
+    fontSize: 12,
+    fontWeight: 800
+  },
+  glassPanel: {
+    background: "rgba(255, 255, 255, 0.82)",
+    border: "1px solid rgba(255, 237, 213, 0.9)",
+    borderRadius: 24,
+    boxShadow: "0 18px 42px rgba(15, 23, 42, 0.07)"
+  },
+  miniIcon: {
+    height: 48,
+    width: 48,
+    borderRadius: 17,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 25,
+    flexShrink: 0
+  },
+  bottomDock: {
+    marginTop: "auto",
+    paddingTop: 12,
+    background: "linear-gradient(180deg, rgba(255, 250, 244, 0), #fffaf4 34%)"
+  }
+};
+
+function mergeStyles() {
+  var output = {};
+  for (var i = 0; i < arguments.length; i += 1) {
+    Object.assign(output, arguments[i]);
+  }
+  return output;
+}
+
+function PhoneFrame(props) {
+  return (
+    <div style={styles.phoneOuter}>
+      <div style={styles.phoneInner}>
+        <div style={styles.statusBar}>
+          <span>9:41</span>
+          <span>5G  82%</span>
+        </div>
+        <div style={styles.appHeader}>
+          <div style={styles.brandLockup}>
+            <div style={styles.brandIcon}>S</div>
+            <div>
+              <p style={{ margin: 0, fontSize: 12, color: "#9a3412", fontWeight: 950 }}>SWIGGY</p>
+              <p style={{ margin: "2px 0 0", fontSize: 15, color: "#171717", fontWeight: 950 }}>Meal Autopilot</p>
+            </div>
+          </div>
+          <div style={styles.headerChip}>30 min alert</div>
+        </div>
+        {props.children}
+      </div>
+    </div>
+  );
+}
+
+function ProgressBar(props) {
+  return (
+    <div style={styles.progressWrap}>
+      <div style={styles.progressTrack}>
+        {steps.map(function (_, index) {
+          return (
+            <div
+              key={index}
+              style={mergeStyles(styles.progressItem, {
+                background: index <= props.step ? "linear-gradient(90deg, #fc8019, #ef4444)" : "rgba(231, 229, 228, 0.95)"
+              })}
+            />
+          );
+        })}
+      </div>
+      <p style={styles.stepText}>
+        Step {props.step + 1} of {steps.length} • {steps[props.step]}
+      </p>
+    </div>
+  );
+}
+
+function ScreenTitle(props) {
+  return (
+    <div>
+      {props.kicker ? (
+        <p style={{ margin: "0 0 8px", color: "#fc8019", fontSize: 12, fontWeight: 950, textTransform: "uppercase", letterSpacing: 0 }}>
+          {props.kicker}
+        </p>
+      ) : null}
+      <h2 style={styles.title}>{props.title}</h2>
+      {props.subtitle ? <p style={styles.subtitle}>{props.subtitle}</p> : null}
+    </div>
+  );
+}
+
+function FooterActions(props) {
+  var disabledStyle = props.disabled ? styles.disabledButton : null;
+  return (
+    <div style={styles.footer}>
+      {props.prev ? (
+        <button type="button" onClick={props.prev} style={styles.secondaryButton}>
+          ← Back
+        </button>
+      ) : null}
+      <button
+        type="button"
+        onClick={props.next}
+        disabled={props.disabled}
+        style={mergeStyles(styles.primaryButton, disabledStyle || {})}
+      >
+        {props.nextLabel || "Continue →"}
+      </button>
+    </div>
+  );
+}
+
+function StepPlanType(props) {
+  var choices = [
+    { title: "Lunch", desc: "Fresh meals between 12 PM and 2 PM", icon: "🍱", tag: "Most used" },
+    { title: "Dinner", desc: "Comfort food for evenings at home", icon: "🍽️", tag: "Easy nights" },
+    { title: "Both", desc: "Plan lunch and dinner together", icon: "🍱🍽️", tag: "Full day" }
+  ];
+
+  return (
+    <div style={styles.content}>
+      <ScreenTitle
+        kicker="Start here"
+        title="Put your meals on autopilot"
+        subtitle="Choose the routine Swiggy should handle for you. You can pause, skip, or swap anytime."
+      />
+
+      <div style={mergeStyles(styles.glassPanel, { marginTop: 18, padding: 16, background: "linear-gradient(135deg, #fff7ed, #ffffff 62%)" })}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={mergeStyles(styles.miniIcon, { background: "#ffedd5" })}>⚡</div>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, color: "#171717", fontWeight: 950 }}>Smart daily rotation</p>
+            <p style={{ margin: "5px 0 0", fontSize: 13, lineHeight: "18px", color: "#78716c" }}>
+              Seven meals, best coupon, one reminder before every order.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style={styles.list}>
+        {choices.map(function (choice) {
+          var selected = props.data.plan === choice.title;
+          return (
+            <button
+              type="button"
+              key={choice.title}
+              onClick={function () {
+                props.setData(Object.assign({}, props.data, { plan: choice.title }));
+                props.next();
+              }}
+              style={mergeStyles(styles.optionCard, selected ? styles.selectedCard : {})}
+            >
+              <span style={mergeStyles(styles.miniIcon, { background: selected ? "#ffedd5" : "#f5f5f4" })}>{choice.icon}</span>
+              <span style={{ flex: 1 }}>
+                <span style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                  <span style={{ display: "block", fontWeight: 950, color: "#18181b" }}>{choice.title}</span>
+                  <span style={mergeStyles(styles.pill, { background: selected ? "#fc8019" : "#f5f5f4", color: selected ? "white" : "#78716c" })}>{choice.tag}</span>
+                </span>
+                <span style={{ display: "block", fontSize: 14, color: "#71717a", marginTop: 5 }}>{choice.desc}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StepDays(props) {
+  var calendarDays = [
+    { date: "2026-05-01", day: "Fri", label: "1" },
+    { date: "2026-05-02", day: "Sat", label: "2" },
+    { date: "2026-05-03", day: "Sun", label: "3" },
+    { date: "2026-05-04", day: "Mon", label: "4" },
+    { date: "2026-05-05", day: "Tue", label: "5" },
+    { date: "2026-05-06", day: "Wed", label: "6" },
+    { date: "2026-05-07", day: "Thu", label: "7" },
+    { date: "2026-05-08", day: "Fri", label: "8" },
+    { date: "2026-05-09", day: "Sat", label: "9" },
+    { date: "2026-05-10", day: "Sun", label: "10" },
+    { date: "2026-05-11", day: "Mon", label: "11" },
+    { date: "2026-05-12", day: "Tue", label: "12" },
+    { date: "2026-05-13", day: "Wed", label: "13" },
+    { date: "2026-05-14", day: "Thu", label: "14" }
+  ];
+
+  function toggleDate(date) {
+    var selected = props.data.selectedDates || [];
+    var exists = selected.indexOf(date) >= 0;
+    var updated = exists
+      ? selected.filter(function (item) { return item !== date; })
+      : selected.concat(date);
+
+    props.setData(Object.assign({}, props.data, {
+      selectedDates: updated,
+      days: updated.length
+    }));
+  }
+
+  function selectWeekdays() {
+    var weekdays = calendarDays
+      .filter(function (item) { return item.day !== "Sat" && item.day !== "Sun"; })
+      .map(function (item) { return item.date; });
+
+    props.setData(Object.assign({}, props.data, {
+      selectedDates: weekdays,
+      days: weekdays.length
+    }));
+  }
+
+  function selectAll() {
+    var allDates = calendarDays.map(function (item) { return item.date; });
+    props.setData(Object.assign({}, props.data, {
+      selectedDates: allDates,
+      days: allDates.length
+    }));
+  }
+
+  function clearDates() {
+    props.setData(Object.assign({}, props.data, {
+      selectedDates: [],
+      days: 0
+    }));
+  }
+
+  var selectedCount = (props.data.selectedDates || []).length;
+
+  return (
+    <div style={styles.content}>
+      <ScreenTitle
+        kicker="Schedule"
+        title="Choose your delivery days"
+        subtitle="Tap dates to build your rotation. We’ll only order on selected days."
+      />
+
+      <div style={{ marginTop: 18, display: "flex", gap: 8 }}>
+        <button type="button" onClick={selectWeekdays} style={mergeStyles(styles.secondaryButton, { padding: "10px 12px", fontSize: 13 })}>Weekdays</button>
+        <button type="button" onClick={selectAll} style={mergeStyles(styles.secondaryButton, { padding: "10px 12px", fontSize: 13 })}>All 14 days</button>
+        <button type="button" onClick={clearDates} style={mergeStyles(styles.secondaryButton, { padding: "10px 12px", fontSize: 13 })}>Clear</button>
+      </div>
+
+      <div style={mergeStyles(styles.glassPanel, { marginTop: 16, padding: 16 })}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 950, color: "#18181b" }}>May 2026</p>
+            <p style={{ margin: "4px 0 0", fontSize: 12, color: "#71717a" }}>{selectedCount} days selected</p>
+          </div>
+          {selectedCount > 0 ? <span style={mergeStyles(styles.pill, { background: "#fff7ed", color: "#ea580c" })}>{selectedCount} orders</span> : <span style={mergeStyles(styles.pill, { background: "#f5f5f4", color: "#78716c" })}>Tap dates</span>}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8, marginBottom: 8 }}>
+          {["M", "T", "W", "T", "F", "S", "S"].map(function (day, index) {
+            return <div key={index} style={{ textAlign: "center", fontSize: 11, color: "#71717a", fontWeight: 800 }}>{day}</div>;
+          })}
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+          <div />
+          <div />
+          <div />
+          <div />
+          {calendarDays.map(function (item) {
+            var selected = (props.data.selectedDates || []).indexOf(item.date) >= 0;
+            return (
+              <button
+                type="button"
+                key={item.date}
+                onClick={function () { toggleDate(item.date); }}
+                style={{
+                  height: 44,
+                  borderRadius: 14,
+                  border: selected ? "1px solid #fc8019" : "1px solid #e7e5e4",
+                  background: selected ? "linear-gradient(135deg, #fc8019, #ef4444)" : "#ffffff",
+                  color: selected ? "white" : "#18181b",
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  boxShadow: selected ? "0 8px 18px rgba(252, 128, 25, 0.28)" : "none"
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14, background: "#ecfdf5", border: "1px solid #bbf7d0", borderRadius: 18, padding: 14 }}>
+        <p style={{ margin: 0, fontSize: 13, color: "#166534", lineHeight: "19px", fontWeight: 700 }}>
+          We’ll only place orders on the days you select. You can still skip or pause before any order.
+        </p>
+      </div>
+
+      <FooterActions prev={props.prev} next={props.next} disabled={selectedCount === 0} />
+    </div>
+  );
+}
+
+function StepRestaurants(props) {
+  var queryState = useState("");
+  var query = queryState[0];
+  var setQuery = queryState[1];
+
+  var selectedRestaurantState = useState(null);
+  var selectedRestaurantId = selectedRestaurantState[0];
+  var setSelectedRestaurantId = selectedRestaurantState[1];
+
+  var filteredRestaurants = useMemo(
+    function () {
+      var q = query.trim().toLowerCase();
+      if (!q) return restaurants;
+      return restaurants.filter(function (restaurant) {
+        var restaurantMatch = restaurant.name.toLowerCase().includes(q) || restaurant.meta.toLowerCase().includes(q);
+        var dishMatch = restaurant.dishes.some(function (dish) {
+          return dish.name.toLowerCase().includes(q);
+        });
+        return restaurantMatch || dishMatch;
+      });
+    },
+    [query]
+  );
+
+  var selectedRestaurant = restaurants.find(function (restaurant) {
+    return restaurant.id === selectedRestaurantId;
+  });
+
+  function toggleDish(dish, restaurant) {
+    var exists = props.data.dishes.some(function (item) {
+      return item.id === dish.id;
+    });
+
+    var updated = props.data.dishes.slice();
+
+    if (exists) {
+      updated = updated.filter(function (item) {
+        return item.id !== dish.id;
+      });
+    } else if (updated.length < 7) {
+      updated.push(Object.assign({}, dish, { restaurant: restaurant.name }));
+    }
+
+    props.setData(Object.assign({}, props.data, { dishes: updated }));
+  }
+
+  return (
+    <div style={mergeStyles(styles.content, { height: 644, boxSizing: "border-box", display: "flex", flexDirection: "column" })}>
+      <ScreenTitle
+        kicker="Rotation"
+        title="Pick 7 go-to meals"
+        subtitle="Choose meals once. Swiggy rotates them across your selected days and reshuffles the order weekly."
+      />
+
+      <div style={{ marginTop: 16, paddingBottom: 12 }}>
+        <input
+          value={query}
+          onChange={function (event) {
+            setQuery(event.target.value);
+          }}
+          placeholder="Search for restaurants or dishes you love"
+          style={styles.input}
+        />
+        <div style={{ marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: "#18181b" }}>{props.data.dishes.length}/7 meals locked in</p>
+          {props.data.dishes.length === 7 ? (
+            <span style={mergeStyles(styles.pill, { background: "#dcfce7", color: "#15803d" })}>Ready</span>
+          ) : (
+            <span style={mergeStyles(styles.pill, { background: "#fff7ed", color: "#ea580c" })}>{7 - props.data.dishes.length} left</span>
+          )}
+        </div>
+      </div>
+
+      {!selectedRestaurant ? (
+        <div style={styles.scrollArea}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {filteredRestaurants.map(function (restaurant) {
+              return (
+                <button
+                  type="button"
+                  key={restaurant.id}
+                  onClick={function () {
+                    setSelectedRestaurantId(restaurant.id);
+                  }}
+                  style={styles.optionCard}
+                >
+                  <div style={mergeStyles(styles.miniIcon, { height: 56, width: 56, background: "linear-gradient(135deg, #fff7ed, #ffedd5)", fontSize: 30 })}>
+                    {restaurant.emoji}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <p style={{ margin: 0, fontWeight: 900, color: "#18181b" }}>{restaurant.name}</p>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 900, color: "#15803d" }}>★ {restaurant.rating}</p>
+                    </div>
+                    <p style={{ margin: "6px 0 0", fontSize: 14, color: "#71717a" }}>{restaurant.meta}</p>
+                    <p style={{ margin: "7px 0 0", fontSize: 12, color: "#ea580c", fontWeight: 950 }}>View menu →</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div style={styles.scrollArea}>
+          <button
+            type="button"
+            onClick={function () {
+              setSelectedRestaurantId(null);
+            }}
+            style={{ border: 0, background: "transparent", color: "#ea580c", fontWeight: 900, fontSize: 14, marginBottom: 12, cursor: "pointer" }}
+          >
+            ← Back to all restaurants
+          </button>
+
+          <div style={mergeStyles(styles.glassPanel, { padding: 16, marginBottom: 12, background: "linear-gradient(135deg, #fff7ed, #ffffff)" })}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={mergeStyles(styles.miniIcon, { height: 56, width: 56, background: "#ffedd5", fontSize: 30 })}>
+                {selectedRestaurant.emoji}
+              </div>
+              <div>
+                <p style={{ margin: 0, fontWeight: 900, color: "#18181b" }}>{selectedRestaurant.name}</p>
+                <p style={{ margin: "5px 0 0", fontSize: 14, color: "#71717a" }}>{selectedRestaurant.meta}</p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {selectedRestaurant.dishes.map(function (dish) {
+              var added = props.data.dishes.some(function (item) {
+                return item.id === dish.id;
+              });
+              var disabled = !canAddDish(props.data.dishes, dish.id);
+
+              return (
+                <button
+                  type="button"
+                  key={dish.id}
+                  onClick={function () {
+                    toggleDish(dish, selectedRestaurant);
+                  }}
+                  disabled={disabled}
+                  style={mergeStyles(
+                    styles.optionCard,
+                    added ? styles.selectedCard : {},
+                    disabled ? styles.disabledButton : {}
+                  )}
+                >
+                  <div style={mergeStyles(styles.miniIcon, { height: 56, width: 56, background: added ? "#ffedd5" : "#f4f4f5", fontSize: 30 })}>
+                    {dish.emoji}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 900, color: "#18181b" }}>{dish.name}</p>
+                    <p style={{ margin: "5px 0 0", fontSize: 14, color: "#71717a" }}>₹{dish.price}</p>
+                  </div>
+                  <span style={mergeStyles(styles.pill, added ? { background: "#f97316", color: "white" } : { background: "#f4f4f5", color: "#3f3f46" })}>
+                    {added ? "Added" : "Add to plan"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div style={styles.bottomDock}>
+        <FooterActions prev={props.prev} next={props.next} disabled={props.data.dishes.length !== 7} />
+      </div>
+    </div>
+  );
+}
+
+function StepPreferences(props) {
+  var paymentApps = ["Google Pay", "PhonePe", "Paytm", "BHIM UPI"];
+  var mandateOn = props.data.paymentMode === "mandate";
+
+  return (
+    <div style={mergeStyles(styles.content, { height: 644, boxSizing: "border-box", display: "flex", flexDirection: "column" })}>
+      <ScreenTitle
+        kicker="Payments"
+        title="Make ordering hands-free"
+        subtitle="Set the order time and payment mode. You’ll still get a reminder before anything goes through."
+      />
+
+      <div style={mergeStyles(styles.scrollArea, { marginTop: 20 })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ background: "linear-gradient(135deg, #ecfdf5, #ffffff)", border: "1px solid #bbf7d0", borderRadius: 20, padding: 16 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <div style={mergeStyles(styles.miniIcon, { height: 42, width: 42, background: "#dcfce7", fontSize: 22 })}>🏷️</div>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: "#14532d" }}>We’ll always get you the best deal</p>
+                <p style={{ margin: "6px 0 0", fontSize: 14, lineHeight: "20px", color: "#15803d" }}>
+                  Before we order each day, we’ll automatically apply the coupon that saves you the most—no need to hunt for codes.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={mergeStyles(styles.glassPanel, { padding: 16 })}>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: "#18181b" }}>When should we order?</p>
+            <input
+              value={props.data.time}
+              onChange={function (event) {
+                props.setData(Object.assign({}, props.data, { time: event.target.value }));
+              }}
+              style={mergeStyles(styles.input, { marginTop: 10 })}
+            />
+            <p style={{ margin: "8px 0 0", fontSize: 12, color: "#71717a" }}>You’ll get a heads-up 30 mins before we place the order.</p>
+          </div>
+
+          <div style={mergeStyles(styles.glassPanel, { padding: 16 })}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center" }}>
+              <div>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: "#18181b" }}>Turn on AutoPay</p>
+                <p style={{ margin: "6px 0 0", fontSize: 13, lineHeight: "18px", color: "#71717a" }}>
+                  Let Swiggy pay automatically up to ₹{props.data.mandateLimit} when autopilot is on.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={function () {
+                  props.setData(Object.assign({}, props.data, {
+                    paymentMode: mandateOn ? "manual-upi" : "mandate"
+                  }));
+                }}
+                style={{
+                  border: 0,
+                  borderRadius: 999,
+                  width: 58,
+                  height: 32,
+                  background: mandateOn ? "linear-gradient(135deg, #16a34a, #22c55e)" : "#d4d4d8",
+                  padding: 4,
+                  cursor: "pointer",
+                  display: "flex",
+                  justifyContent: mandateOn ? "flex-end" : "flex-start",
+                  flexShrink: 0
+                }}
+              >
+                <span style={{ display: "block", height: 24, width: 24, borderRadius: 999, background: "white" }} />
+              </button>
+            </div>
+          </div>
+
+          {mandateOn ? (
+            <div style={mergeStyles(styles.glassPanel, { padding: 16 })}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: "#18181b" }}>Pick your payment app</p>
+              <p style={{ margin: "6px 0 12px", fontSize: 13, color: "#71717a" }}>No approvals needed each day. You can pause or cancel anytime.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {paymentApps.map(function (app) {
+                  var selected = props.data.paymentMethod === app;
+                  return (
+                    <button
+                      key={app}
+                      type="button"
+                      onClick={function () {
+                        props.setData(Object.assign({}, props.data, { paymentMethod: app }));
+                      }}
+                      style={mergeStyles(styles.optionCard, selected ? styles.selectedCard : {}, { padding: 13 })}
+                    >
+                      <span style={{ fontSize: 22 }}>{app === "Google Pay" ? "G" : app === "PhonePe" ? "पे" : app === "Paytm" ? "P" : "₹"}</span>
+                      <span style={{ flex: 1, fontWeight: 800, color: "#18181b" }}>{app}</span>
+                      <span style={mergeStyles(styles.pill, selected ? { background: "#f97316", color: "white" } : { background: "#f4f4f5", color: "#3f3f46" })}>{selected ? "Selected" : "Select"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div style={mergeStyles(styles.glassPanel, { padding: 16 })}>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 900, color: "#18181b" }}>Pay manually each day</p>
+              <p style={{ margin: "6px 0 10px", fontSize: 13, color: "#71717a" }}>We’ll ask for your approval before every order is placed.</p>
+              <input
+                placeholder="yourname@upi"
+                value={props.data.upiId}
+                onChange={function (event) {
+                  props.setData(Object.assign({}, props.data, { upiId: event.target.value }));
+                }}
+                style={styles.input}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={styles.bottomDock}>
+        <FooterActions
+          prev={props.prev}
+          next={props.next}
+          disabled={!props.data.time || (mandateOn && !props.data.paymentMethod) || (!mandateOn && !props.data.upiId)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function StepReview(props) {
+  var checks = validateSetup(props.data);
+  var canStart = checks.hasPlan && checks.hasDays && checks.hasSevenDishes && checks.hasValidTime && checks.hasCouponMode && checks.hasPaymentMode && checks.hasMandateMethod && checks.hasUpiId;
+
+  return (
+    <div style={mergeStyles(styles.content, { height: 644, boxSizing: "border-box", display: "flex", flexDirection: "column" })}>
+      <ScreenTitle
+        kicker="Final check"
+        title="Review your autopilot"
+        subtitle="Here’s the full routine before Swiggy starts ordering for you."
+      />
+
+      <div style={mergeStyles(styles.scrollArea, { marginTop: 16 })}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={mergeStyles(styles.glassPanel, { padding: 16, background: "linear-gradient(135deg, #fff7ed, #ffffff)" })}>
+            <p style={{ margin: 0, fontSize: 12, color: "#71717a" }}>Your plan</p>
+            <p style={{ margin: "5px 0 0", fontWeight: 900, color: "#18181b" }}>
+              {props.data.plan} • {(props.data.selectedDates || []).length} selected days • {props.data.time}
+            </p>
+          </div>
+
+          <div style={mergeStyles(styles.glassPanel, { padding: 16 })}>
+            <p style={{ margin: 0, fontSize: 12, color: "#71717a" }}>Savings</p>
+            <p style={{ margin: "5px 0 0", fontWeight: 900, color: "#18181b" }}>Best discount applied automatically</p>
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "#71717a", lineHeight: "18px" }}>
+              Swiggy will pick the coupon that gives the maximum final discount before payment.
+            </p>
+          </div>
+
+          <div style={mergeStyles(styles.glassPanel, { padding: 16 })}>
+            <p style={{ margin: 0, fontSize: 12, color: "#71717a" }}>How you’ll pay</p>
+            <p style={{ margin: "5px 0 0", fontWeight: 900, color: "#18181b" }}>
+              {props.data.paymentMode === "mandate"
+                ? "AutoPay mandate up to ₹" + props.data.mandateLimit
+                : "Manual UPI approval before every order"}
+            </p>
+            <p style={{ margin: "6px 0 0", fontSize: 12, color: "#71717a", lineHeight: "18px" }}>
+              {props.data.paymentMode === "mandate"
+                ? "Payment app: " + props.data.paymentMethod + ". No approval needed for each order while autopilot is on."
+                : "UPI ID: " + props.data.upiId + ". You’ll approve payment before each order."}
+            </p>
+          </div>
+
+          <div style={mergeStyles(styles.glassPanel, { padding: 16 })}>
+            <p style={{ margin: "0 0 12px", fontSize: 12, color: "#71717a" }}>Your meals</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {props.data.dishes.map(function (dish, index) {
+                return (
+                  <div key={dish.id} style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 14 }}>
+                    <div style={{ height: 34, width: 34, borderRadius: 14, background: "#fff7ed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {dish.emoji}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ margin: 0, fontWeight: 800, color: "#18181b" }}>
+                        {index + 1}. {dish.name}
+                      </p>
+                      <p style={{ margin: "3px 0 0", fontSize: 12, color: "#71717a" }}>
+                        {dish.restaurant} • ₹{dish.price}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ background: "linear-gradient(135deg, #ecfdf5, #ffffff)", border: "1px solid #bbf7d0", borderRadius: 20, padding: 16 }}>
+            <p style={{ margin: 0, fontWeight: 900, color: "#166534" }}>Before every order</p>
+            <p style={{ margin: "6px 0 0", fontSize: 14, color: "#15803d", lineHeight: "20px" }}>
+              We’ll remind you 30 mins before ordering. You can skip, swap, or pause anytime.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style={mergeStyles(styles.bottomDock, { display: "flex", gap: 10 })}>
+        <button type="button" onClick={props.prev} style={styles.secondaryButton}>
+          ← Back
+        </button>
+        <button
+          type="button"
+          onClick={props.onStartMandate}
+          disabled={!canStart}
+          style={mergeStyles(
+            styles.primaryButton,
+            { background: "linear-gradient(135deg, #16a34a, #22c55e)", boxShadow: "0 14px 28px rgba(22, 163, 74, 0.24)" },
+            !canStart ? styles.disabledButton : {}
+          )}
+        >
+          Turn on Autopilot 🚀
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MandateApprovalScreen(props) {
+  var selectedDays = (props.data.selectedDates || []).length;
+  var mandateDays = selectedDays > 0 ? selectedDays : props.data.days;
+
+  return (
+    <div style={mergeStyles(styles.content, { height: 704, boxSizing: "border-box", display: "flex", flexDirection: "column", background: "linear-gradient(180deg, #ffffff, #fffaf4)" })}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button
+          type="button"
+          onClick={props.onBack}
+          style={{ border: 0, background: "#f4f4f5", width: 38, height: 38, borderRadius: 999, cursor: "pointer", fontSize: 18, flexShrink: 0 }}
+        >
+          ←
+        </button>
+        <div>
+          <p style={{ margin: 0, fontSize: 13, color: "#71717a" }}>UPI AutoPay mandate</p>
+          <h2 style={{ margin: "3px 0 0", fontSize: 20, color: "#18181b" }}>Approve Autopilot payment</h2>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 26, textAlign: "center" }}>
+        <div style={{ margin: "0 auto", height: 72, width: 72, borderRadius: 26, background: "linear-gradient(135deg, #fff7ed, #ffedd5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 34, boxShadow: "0 16px 34px rgba(252, 128, 25, 0.16)" }}>
+          🍱
+        </div>
+        <p style={{ margin: "16px 0 0", fontSize: 13, color: "#71717a" }}>Mandate amount</p>
+        <h1 style={{ margin: "4px 0 0", fontSize: 38, lineHeight: "44px", color: "#18181b" }}>₹{props.data.mandateLimit}</h1>
+        <p style={{ margin: "8px auto 0", maxWidth: 290, fontSize: 13, color: "#71717a", lineHeight: "19px" }}>
+          Swiggy can auto-debit up to this amount for each scheduled order while Autopilot is on.
+        </p>
+      </div>
+
+      <div style={{ marginTop: 26, background: "rgba(255, 255, 255, 0.92)", border: "1px solid #e4e4e7", borderRadius: 24, overflow: "hidden", boxShadow: "0 18px 42px rgba(15, 23, 42, 0.07)" }}>
+        <div style={{ padding: 16, display: "flex", justifyContent: "space-between", gap: 16, borderBottom: "1px solid #e4e4e7" }}>
+          <span style={{ color: "#71717a", fontSize: 14 }}>Paid to</span>
+          <strong style={{ color: "#18181b", fontSize: 14, textAlign: "right" }}>Swiggy Autopilot Meals</strong>
+        </div>
+        <div style={{ padding: 16, display: "flex", justifyContent: "space-between", gap: 16, borderBottom: "1px solid #e4e4e7" }}>
+          <span style={{ color: "#71717a", fontSize: 14 }}>Payment app</span>
+          <strong style={{ color: "#18181b", fontSize: 14 }}>{props.data.paymentMethod}</strong>
+        </div>
+        <div style={{ padding: 16, display: "flex", justifyContent: "space-between", gap: 16, borderBottom: "1px solid #e4e4e7" }}>
+          <span style={{ color: "#71717a", fontSize: 14 }}>Validity</span>
+          <strong style={{ color: "#18181b", fontSize: 14 }}>{mandateDays} selected days</strong>
+        </div>
+        <div style={{ padding: 16, display: "flex", justifyContent: "space-between", gap: 16, borderBottom: "1px solid #e4e4e7" }}>
+          <span style={{ color: "#71717a", fontSize: 14 }}>Frequency</span>
+          <strong style={{ color: "#18181b", fontSize: 14 }}>Once per selected day</strong>
+        </div>
+        <div style={{ padding: 16, display: "flex", justifyContent: "space-between", gap: 16 }}>
+          <span style={{ color: "#71717a", fontSize: 14 }}>Order time</span>
+          <strong style={{ color: "#18181b", fontSize: 14 }}>{props.data.time}</strong>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 16, background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 20, padding: 14 }}>
+        <p style={{ margin: 0, fontSize: 13, lineHeight: "19px", color: "#166534" }}>
+          You’ll still get a 30-minute reminder before every order. You can skip, swap, pause, or cancel Autopilot anytime.
+        </p>
+      </div>
+
+      <div style={{ marginTop: "auto" }}>
+        <button
+          type="button"
+          onClick={props.onAccept}
+          style={mergeStyles(styles.primaryButton, { width: "100%", background: "linear-gradient(135deg, #5f259f, #7c3aed)", flex: "unset", fontSize: 16, boxShadow: "0 14px 28px rgba(95, 37, 159, 0.24)" })}
+        >
+          Accept mandate
+        </button>
+        <button
+          type="button"
+          onClick={props.onBack}
+          style={{ marginTop: 10, width: "100%", border: 0, background: "transparent", color: "#71717a", fontWeight: 800, padding: 12, cursor: "pointer" }}
+        >
+          Review again
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AutopilotSuccessScreen(props) {
+  return (
+    <div style={mergeStyles(styles.content, { height: 704, boxSizing: "border-box", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", background: "radial-gradient(circle at 50% 18%, #dcfce7 0, #fffaf4 38%, #fffaf4 100%)" })}>
+      <div style={{ height: 86, width: 86, borderRadius: 32, background: "linear-gradient(135deg, #dcfce7, #bbf7d0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, boxShadow: "0 18px 42px rgba(22, 163, 74, 0.2)" }}>
+        ✅
+      </div>
+      <h1 style={{ margin: "22px 0 0", fontSize: 28, lineHeight: "34px", color: "#18181b" }}>Autopilot is on</h1>
+      <p style={{ margin: "10px 0 0", fontSize: 14, lineHeight: "21px", color: "#71717a", maxWidth: 300 }}>
+        Your meals are scheduled. We’ll remind you before every order and apply the best coupon automatically.
+      </p>
+      <button
+        type="button"
+        onClick={props.onDone}
+        style={mergeStyles(styles.primaryButton, { marginTop: 28, width: "100%", flex: "unset" })}
+      >
+        Done
+      </button>
+    </div>
+  );
+}
+
+export default function SetupFlowUI() {
+  var screenState = useState("setup");
+  var screen = screenState[0];
+  var setScreen = screenState[1];
+
+  var stepState = useState(0);
+  var step = stepState[0];
+  var setStep = stepState[1];
+
+  var dataState = useState({
+    plan: "",
+    days: 0,
+    selectedDates: [],
+    dishes: [],
+    couponMode: "auto-best",
+    paymentMode: "mandate",
+    paymentMethod: "Google Pay",
+    upiId: "",
+    mandateLimit: 1633,
+    time: "1:00 PM"
+  });
+  var data = dataState[0];
+  var setData = dataState[1];
+
+  function next() {
+    setStep(function (currentStep) {
+      return Math.min(currentStep + 1, steps.length - 1);
+    });
+  }
+
+  function prev() {
+    setStep(function (currentStep) {
+      return Math.max(currentStep - 1, 0);
+    });
+  }
+
+  if (screen === "mandate") {
+    return (
+      <div style={styles.page}>
+        <PhoneFrame>
+          <MandateApprovalScreen
+            data={data}
+            onBack={function () { setScreen("setup"); }}
+            onAccept={function () { setScreen("success"); }}
+          />
+        </PhoneFrame>
+      </div>
+    );
+  }
+
+  if (screen === "success") {
+    return (
+      <div style={styles.page}>
+        <PhoneFrame>
+          <AutopilotSuccessScreen onDone={function () { setScreen("setup"); }} />
+        </PhoneFrame>
+      </div>
+    );
+  }
+
+  return (
+    <div style={styles.page}>
+      <PhoneFrame>
+        <ProgressBar step={step} />
+        {step === 0 ? <StepPlanType next={next} data={data} setData={setData} /> : null}
+        {step === 1 ? <StepDays next={next} prev={prev} data={data} setData={setData} /> : null}
+        {step === 2 ? <StepRestaurants next={next} prev={prev} data={data} setData={setData} /> : null}
+        {step === 3 ? <StepPreferences next={next} prev={prev} data={data} setData={setData} /> : null}
+        {step === 4 ? <StepReview prev={prev} data={data} onStartMandate={function () { setScreen("mandate"); }} /> : null}
+      </PhoneFrame>
+    </div>
+  );
+}
+
+import { createRoot } from "react-dom/client";
+createRoot(document.getElementById("root")).render(<SetupFlowUI />);
+  </script>
+</body>
+</html>
