@@ -435,18 +435,6 @@ function StepPlanType(props) {
         subtitle="Choose the routine Swiggy should handle for you. You can pause, skip, or swap anytime."
       />
 
-      <div style={mergeStyles(styles.glassPanel, { marginTop: 18, padding: 16, background: "linear-gradient(135deg, #fff7ed, #ffffff 62%)" })}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={mergeStyles(styles.miniIcon, { background: "#ffedd5" })}>⚡</div>
-          <div>
-            <p style={{ margin: 0, fontSize: 14, color: "#171717", fontWeight: 950 }}>Smart daily rotation</p>
-            <p style={{ margin: "5px 0 0", fontSize: 13, lineHeight: "18px", color: "#78716c" }}>
-              Seven meals, best coupon, one reminder before every order.
-            </p>
-          </div>
-        </div>
-      </div>
-
       <div style={styles.list}>
         {choices.map(function (choice) {
           var selected = props.data.plan === choice.title;
@@ -491,7 +479,24 @@ function StepDays(props) {
     { date: "2026-05-11", day: "Mon", label: "11" },
     { date: "2026-05-12", day: "Tue", label: "12" },
     { date: "2026-05-13", day: "Wed", label: "13" },
-    { date: "2026-05-14", day: "Thu", label: "14" }
+    { date: "2026-05-14", day: "Thu", label: "14" },
+    { date: "2026-05-15", day: "Fri", label: "15" },
+    { date: "2026-05-16", day: "Sat", label: "16" },
+    { date: "2026-05-17", day: "Sun", label: "17" },
+    { date: "2026-05-18", day: "Mon", label: "18" },
+    { date: "2026-05-19", day: "Tue", label: "19" },
+    { date: "2026-05-20", day: "Wed", label: "20" },
+    { date: "2026-05-21", day: "Thu", label: "21" },
+    { date: "2026-05-22", day: "Fri", label: "22" },
+    { date: "2026-05-23", day: "Sat", label: "23" },
+    { date: "2026-05-24", day: "Sun", label: "24" },
+    { date: "2026-05-25", day: "Mon", label: "25" },
+    { date: "2026-05-26", day: "Tue", label: "26" },
+    { date: "2026-05-27", day: "Wed", label: "27" },
+    { date: "2026-05-28", day: "Thu", label: "28" },
+    { date: "2026-05-29", day: "Fri", label: "29" },
+    { date: "2026-05-30", day: "Sat", label: "30" },
+    { date: "2026-05-31", day: "Sun", label: "31" }
   ];
 
   function toggleDate(date) {
@@ -545,12 +550,12 @@ function StepDays(props) {
 
       <div style={{ marginTop: 18, display: "flex", gap: 8 }}>
         <button type="button" onClick={selectWeekdays} style={mergeStyles(styles.secondaryButton, { padding: "10px 12px", fontSize: 13 })}>Weekdays</button>
-        <button type="button" onClick={selectAll} style={mergeStyles(styles.secondaryButton, { padding: "10px 12px", fontSize: 13 })}>All 14 days</button>
+        <button type="button" onClick={selectAll} style={mergeStyles(styles.secondaryButton, { padding: "10px 12px", fontSize: 13 })}>All May</button>
         <button type="button" onClick={clearDates} style={mergeStyles(styles.secondaryButton, { padding: "10px 12px", fontSize: 13 })}>Clear</button>
       </div>
 
-      <div style={mergeStyles(styles.glassPanel, { marginTop: 16, padding: 16 })}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+      <div style={mergeStyles(styles.glassPanel, { marginTop: 16, padding: 14 })}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 950, color: "#18181b" }}>May 2026</p>
             <p style={{ margin: "4px 0 0", fontSize: 12, color: "#71717a" }}>{selectedCount} days selected</p>
@@ -558,13 +563,13 @@ function StepDays(props) {
           {selectedCount > 0 ? <span style={mergeStyles(styles.pill, { background: "#fff7ed", color: "#ea580c" })}>{selectedCount} orders</span> : <span style={mergeStyles(styles.pill, { background: "#f5f5f4", color: "#78716c" })}>Tap dates</span>}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8, marginBottom: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 7 }}>
           {["M", "T", "W", "T", "F", "S", "S"].map(function (day, index) {
             return <div key={index} style={{ textAlign: "center", fontSize: 11, color: "#71717a", fontWeight: 800 }}>{day}</div>;
           })}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
           <div />
           <div />
           <div />
@@ -577,8 +582,8 @@ function StepDays(props) {
                 key={item.date}
                 onClick={function () { toggleDate(item.date); }}
                 style={{
-                  height: 44,
-                  borderRadius: 14,
+                  height: 36,
+                  borderRadius: 12,
                   border: selected ? "1px solid #fc8019" : "1px solid #e7e5e4",
                   background: selected ? "linear-gradient(135deg, #fc8019, #ef4444)" : "#ffffff",
                   color: selected ? "white" : "#18181b",
