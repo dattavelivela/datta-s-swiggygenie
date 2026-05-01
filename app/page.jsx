@@ -682,7 +682,7 @@ function StepReview({ data, prev, auth }) {
             <p style={{ margin: 0, fontSize: 12, color: "#71717a" }}>Swiggy MCP</p>
             <p style={{ margin: "5px 0 0", fontWeight: 950, color: "#18181b" }}>{auth.connected ? "Connected" : "Not connected yet"}</p>
             <p style={{ margin: "6px 0 0", fontSize: 12, color: "#71717a", lineHeight: "18px" }}>
-              Backend routes are ready for OAuth, `get_addresses`, `search_restaurants`, cart tools, coupons, and guarded order placement.
+              Backend routes are ready for OAuth, `get_addresses`, `search_restaurants`, menu/cart tools, coupons, COD checkout, and guarded order placement.
             </p>
           </div>
           <div style={mergeStyles(styles.glassPanel, { padding: 16 })}>

@@ -10,17 +10,17 @@ const MUTATING_TOOLS = new Set([
 
 export async function POST(request) {
   const body = await request.json().catch(() => ({}));
-  const { tool, arguments: args = {}, confirmPlaceOrder = false } = body;
+  const { tool, arguments: args = {} } = body;
 
   if (!FOOD_TOOLS.has(tool)) {
     return NextResponse.json({ success: false, error: { message: "Unsupported Swiggy Food tool." } }, { status: 400 });
   }
 
-  if (tool === "place_food_order" && confirmPlaceOrder !== true) {
+  if (tool === "place_food_order") {
     return NextResponse.json({
       success: false,
       error: {
-        message: "Order placement requires explicit user confirmation."
+        message: "Use /api/swiggy/place-order so cart refresh, ₹1000 cap, COD payment, and check-then-retry guards are enforced."
       }
     }, { status: 409 });
   }
